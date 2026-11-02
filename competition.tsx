@@ -1,0 +1,79 @@
+'use client';
+import { useEffect, useRef, useState } from 'react';
+import { Check, ChevronRight, GraduationCap, ImagePlus, LoaderCircle, Minus, Plus, Radio, Shield, Trophy, Upload, Users, X, RotateCcw } from 'lucide-react';
+import { logoUrl, type Game, type Session, type Student, type Team } from '@/lib/competition';
+
+export function Emblem({ logo, name = 'PIC', kind = 'team', size = '', className = '' }: { logo?: string | null; name?: string; kind?: string; size?: string; className?: string }) {
+  const src = (kind === 'team' ? undefined : logoUrl(logo)) || (kind === 'school' ? '/pic-school-logo.png' : undefined);
+  return <span className={`emblem ${size} ${name.includes('Emerald') ? 'emerald' : 'sapphire'} ${className}`}>
+    {src ? <img src={src} alt={`${name} logo`} /> : kind === 'competition' ? <Trophy aria-hidden="true" /> : kind === 'school' ? <><Shield aria-hidden="true" /><b>PIC</b></> : <><GraduationCap aria-hidden="true" /><b>{name.split(' ')[0]}</b></>}
+  </span>;
+}
+
+export function BrandHeader({ game, connected }: { game: Game | null; connected: boolean }) {
+  return <header className="masthead"><div className="masthead-inner"><a className="college-brand" href="/" aria-label="PIC Competition Software home">
+    <Emblem logo={game?.schoolLogo} name="Penny International College" kind="school" size="school-emblem" />
+    <span><small>PENNY INTERNATIONAL COLLEGE</small><strong>PIC Competition Software</strong></span>
+  </a><div className="masthead-right">{game ? <span className={`connection ${connected ? '' : 'lost'}`}><i />{connected ? 'Live connection' : 'Reconnecting'}</span> : <span className="edition">INTER-CLASS COMPETITION</span>}<span className="competition-brand"><Emblem logo={game?.competitionLogo} name="Competition" kind="competition" size="competition-emblem" />{!game?.competitionLogo && <span>COMPETITION<br />ICON</span>}</span></div></div><div className="masthead-rule" /></header>;
+}
+
+export function BuzzSequence({ game, myId }: { game: Game; myId?: string }) {
+  return <section className="panel sequence-panel"><div className="panel-heading"><span className="heading-icon"><Radio size={16} /></span><h3>Buzz sequence</h3><span className="count">{String(game.buzzes.length).padStart(2, '0')}</span></div>
+    {game.buzzes.length ? <ol className="sequence-list">{game.buzzes.map((b, i) => {
+      const team = game.teams.find(t => t.id === b.team);
+      return <li key={b.id} className={`${i === 0 ? 'first-buzz' : ''} ${b.player === myId ? 'my-buzz' : ''}`}><span className="position">{String(i + 1).padStart(2, '0')}</span><Emblem logo={team?.logo} name={team?.name || 'PIC'} size="tiny" /><span className="sequence-name"><strong>{team?.name || 'Unassigned contestant'}</strong><small>{b.name || 'Unnamed student'}{b.player === myId ? ' · You' : ''}{team && !team.enabled ? ' · Omitted' : ''}</small></span>{i === 0 ? <span className="first-tag">FIRST <Trophy size={12} /></span> : <span className="time-gap">+{Math.max(0, (b.at - game.buzzes[0].at) / 1000).toFixed(3)}s</span>}</li>;
+    })}</ol> : <div className="panel-empty"><span><Radio size={25} /></span><strong>Awaiting the first buzz</strong><p>Class logos and student names<br />will appear here in order.</p></div>}
+    <div className="sequence-caption">Official order · first received by the server</div>
+  </section>;
+}
+
+export function Standings({ game, host, busy, action, compact = false }: { game: Game; host: boolean; busy: boolean; action: (action: string, body?: any) => Promise<void>; compact?: boolean }) {
+  const ranked = [...game.teams].sort((a, b) => b.score - a.score || a.sort - b.sort);
+  return <section className={`standings ${compact ? 'compact-standings' : ''}`}><div className="section-title"><div><span className="overline">SIX CLASSES. ONE COMPETITION.</span><h2>Class standings</h2></div><span className="section-caption">{game.teams.filter(t => t.enabled).length} active teams <span>·</span> 4 students per team</span></div><div className="standings-grid">{ranked.map((team, index) => {
+    const students = game.players.filter(p => p.team === team.id).sort((a, b) => (a.seat || 0) - (b.seat || 0));
+    return <article className={`team-standing ${team.enabled ? '' : 'omitted'}`} key={team.id}><div className="standing-top"><span className="standing-rank">{String(index + 1).padStart(2, '0')}</span><span className={`team-status ${team.enabled ? '' : 'paused'}`}><i />{team.enabled ? 'Active' : 'Omitted'}</span>{host && <button className={`toggle ${team.enabled ? 'on' : ''}`} role="switch" aria-checked={!!team.enabled} aria-label={`${team.enabled ? 'Omit' : 'Restore'} ${team.name}`} title={team.enabled ? 'Omit this class' : 'Restore this class'} disabled={busy} onClick={() => action('team', { team: team.id, enabled: !team.enabled })}><span /></button>}</div><div className="standing-main"><Emblem logo={team.logo} name={team.name} /><div><h3>{team.name}</h3><small>{students.filter(p => p.joined).length} / 4 students registered</small></div><div className="team-points"><strong>{team.score}</strong><span>POINTS</span></div></div><div className="student-roster">{students.map(p => <span key={p.id} title={p.name || `Student ${p.seat}`}><i className={p.joined ? 'joined' : ''} /><span>{p.name || `Student ${p.seat}`}</span></span>)}</div>{host && <div className="score-controls"><span>Award class points</span><button aria-label={`Subtract one point from ${team.name}`} disabled={busy} onClick={() => action('score', { team: team.id, delta: -1 })}><Minus size={15} /></button><button aria-label={`Award one point to ${team.name}`} disabled={busy} onClick={() => action('score', { team: team.id, delta: 1 })}><Plus size={15} /></button></div>}</article>;
+  })}</div>{host && <p className="helper-note">Omitting a class pauses its buzzers. Student names, points and recorded buzzes are retained.</p>}</section>;
+}
+
+export function LogoUpload({ session, kind, team, logo, label, onSaved }: { session: Session; kind: string; team?: string; logo?: string | null; label: string; onSaved: () => Promise<void> }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false), [error, setError] = useState(''), [done, setDone] = useState(false);
+  async function upload(file?: File, remove = false) {
+    if (uploading) return;
+    setError(''); setDone(false);
+    if (file && file.size > 2097152) { setError('Choose an image up to 2 MB.'); return; }
+    setUploading(true);
+    try {
+      const form = new FormData(); form.set('code', session.code); form.set('secret', session.secret || ''); form.set('kind', kind);
+      if (team) form.set('team', team); if (file) form.set('file', file); if (remove) form.set('remove', 'true');
+      const response = await fetch('/api/logo', { method: 'POST', body: form }); const result = await response.json() as { error?: string; key?: string };
+      if (!response.ok) throw new Error(result.error || 'Upload failed.');
+      await onSaved(); setDone(true);
+    } catch (e) { setError((e as Error).message); } finally { setUploading(false); if (input.current) input.current.value = ''; }
+  }
+  return <div className="logo-upload"><input type="file" accept="image/png,image/jpeg,image/webp" ref={input} className="visually-hidden" aria-label={`Upload ${label}`} onChange={e => { const file = e.target.files?.[0]; if (file) upload(file); }} /><button className="button secondary small" disabled={uploading} onClick={() => input.current?.click()}>{uploading ? <LoaderCircle size={14} className="spin" /> : done ? <Check size={14} /> : <Upload size={14} />}{uploading ? 'Saving…' : logo ? 'Replace logo' : 'Upload logo'}</button>{logo && <button className="icon-button remove-logo" aria-label={`Remove ${label}`} title="Remove logo" disabled={uploading} onClick={() => upload(undefined, true)}><X size={14} /></button>}{error && <span className="field-error" role="alert">{error}</span>}</div>;
+}
+
+export function TeamEditor({ team, game, session, busy, action, refresh }: { team: Team; game: Game; session: Session; busy: boolean; action: (action: string, body?: any) => Promise<void>; refresh: () => Promise<void> }) {
+  const students = game.players.filter(p => p.team === team.id).sort((a, b) => (a.seat || 0) - (b.seat || 0));
+  const namesString = JSON.stringify(students.map(p => p.name));
+  const [names, setNames] = useState<string[]>(() => JSON.parse(namesString));
+  useEffect(() => { setNames(JSON.parse(namesString)); }, [namesString]);
+  const dirty = JSON.stringify(names) !== namesString;
+  return <article className={`team-editor ${team.enabled ? '' : 'omitted'}`}><div className="team-editor-heading"><Emblem logo={team.logo} name={team.name} /><div><h3>{team.name}</h3><span>{students.filter(p => p.joined).length} of 4 devices registered</span></div><button className={`toggle ${team.enabled ? 'on' : ''}`} role="switch" aria-checked={!!team.enabled} aria-label={`${team.enabled ? 'Omit' : 'Restore'} ${team.name}`} disabled={busy} onClick={() => action('team', { team: team.id, enabled: !team.enabled })}><span /></button></div><div className="editor-logo-row"><span>{team.enabled ? 'Class is participating' : 'Class omitted · buzzers disabled'}</span></div><form onSubmit={e => { e.preventDefault(); action('roster', { team: team.id, names }); }}><div className="roster-label"><span>STUDENT ROSTER</span><span>DEVICE</span></div>{students.map((student, i) => <div className="roster-input" key={student.id}><span className="seat-number">{i + 1}</span><input aria-label={`${team.name} student ${i + 1}`} placeholder={`Student ${i + 1} full name`} maxLength={40} value={names[i] || ''} disabled={!!game.armed || busy} onChange={e => setNames(n => n.map((s, j) => j === i ? e.target.value : s))} /><span className={`device-state ${student.joined ? 'registered' : ''}`} title={student.joined ? 'Signed in with the session code; device may be offline' : 'Student has not signed in with the session code'}>{student.joined ? <><i />Active</> : 'Not signed in'}</span>{!!student.joined && <button className="icon-button" type="button" title="Release device so this student can rejoin" aria-label={`Release ${team.name} student ${i + 1} device`} disabled={!!game.armed || busy} onClick={() => action('release', { player: student.id })}><RotateCcw size={13} /></button>}</div>)}<button className="button secondary save-roster" disabled={!dirty || !!game.armed || busy}><Check size={15} />Save student names</button></form></article>;
+}
+
+export function TeamSetup({ game, session, busy, action, refresh }: { game: Game; session: Session; busy: boolean; action: (action: string, body?: any) => Promise<void>; refresh: () => Promise<void> }) {
+  return <div className="setup-view"><div className="section-title"><div><span className="overline">COMPETITION ADMINISTRATION</span><h2>Teams & branding</h2></div><span className="section-caption">Changes are shared with every contestant.</span></div><section className="branding-panel"><div className="branding-slot"><Emblem logo={game.schoolLogo} name="Penny International College" kind="school" size="branding-emblem" /><div><h3>School identity</h3><p>Penny International College</p><LogoUpload session={session} kind="school" logo={game.schoolLogo} label="school logo" onSaved={refresh} /></div></div><div className="branding-slot"><Emblem logo={game.competitionLogo} name="Competition" kind="competition" size="branding-emblem" /><div><h3>Competition icon</h3><p>Shown on the host and contestant screens</p><LogoUpload session={session} kind="competition" logo={game.competitionLogo} label="competition icon" onSaved={refresh} /></div></div><p className="branding-note"><ImagePlus size={14} /> PNG, JPEG or WebP · up to 2 MB · square logos work best</p></section><div className={`setup-notice ${game.armed ? 'attention' : ''}`}><Shield size={17} /><span>{game.armed ? 'Buzzers are open. Close them to edit student names or release a device. Class omission and logo uploads remain available.' : 'Set four student names per class, or let students fill an open place when joining. Release a device only when a student needs to reconnect.'}</span>{!!game.armed && <button className="button secondary small" disabled={busy} onClick={() => action('lock')}>Close buzzers</button>}</div><div className="team-editor-grid">{game.teams.map(t => <TeamEditor key={t.id} team={t} game={game} session={session} busy={busy} action={action} refresh={refresh} />)}</div></div>;
+}
+
+export function JoinClass({ game, busy, onJoin, onBack }: { game: Game; busy: boolean; onJoin: (team: string, seat: number, name: string) => Promise<void>; onBack: () => void }) {
+  const [teamId, selectTeam] = useState(''), [seat, selectSeat] = useState(0), [name, setName] = useState('');
+  const team = game.teams.find(t => t.id === teamId);
+  const students = game.players.filter(p => p.team === teamId).sort((a, b) => (a.seat || 0) - (b.seat || 0));
+  const chosen = students.find(s => s.seat === seat);
+  return <section className="join-screen"><div className="join-heading"><span className="overline">CONTESTANT REGISTRATION · SESSION {game.code}</span><h1>Represent your class.</h1><p>Select your class and one of its four student places.</p></div><div className="join-layout"><div className="class-selection"><div className="step-title"><span>01</span><h2>Select your class</h2></div><div className="class-choice-grid">{game.teams.map(t => {
+    const joined = game.players.filter(p => p.team === t.id && p.joined).length;
+    return <button className={`class-choice ${teamId === t.id ? 'selected' : ''}`} disabled={!t.enabled || joined === 4 || busy} key={t.id} onClick={() => { selectTeam(t.id); selectSeat(0); setName(''); }}><Emblem logo={t.logo} name={t.name} /><strong>{t.name}</strong><span>{!t.enabled ? 'Omitted by host' : joined === 4 ? 'All four places joined' : `${4 - joined} student places available`}</span><span className="class-check">{teamId === t.id ? <Check size={16} /> : <ChevronRight size={16} />}</span></button>;
+  })}</div></div><section className="student-selection panel"><div className="step-title"><span>02</span><h2>Take your place</h2></div>{team ? <><div className="selected-class"><Emblem logo={team.logo} name={team.name} size="tiny" /><strong>{team.name}</strong></div><form onSubmit={e => { e.preventDefault(); if (chosen && !chosen.joined && team.enabled) onJoin(team.id, seat, chosen.name || name); }}><div className="seat-options">{students.map(s => <button key={s.id} type="button" className={`seat-option ${seat === s.seat ? 'selected' : ''}`} disabled={!!s.joined || !team.enabled || busy} onClick={() => { selectSeat(s.seat || 0); setName(''); }}><span className="seat-number">{s.seat}</span><span><strong>{s.name || `Student place ${s.seat}`}</strong><small>{s.joined ? 'Device already registered' : s.name ? 'Ready to join' : 'Enter your name to register'}</small></span>{s.joined ? <Check size={15} /> : <span className="radio-dot" />}</button>)}</div>{chosen && !chosen.name && <label className="form-label">Your full name<input autoComplete="name" placeholder="Student’s name" maxLength={40} required value={name} onChange={e => setName(e.target.value)} disabled={busy} /></label>}<button className="button primary join-submit" disabled={!chosen || !!chosen.joined || !team.enabled || (!chosen.name && !name.trim()) || busy}>{busy ? <LoaderCircle className="spin" size={18} /> : <Radio size={18} />}Join as {chosen?.name || name || 'a contestant'}<ChevronRight size={17} /></button><p className="join-device-note">One registered device per student. Keep this tab open during the competition.</p></form></> : <div className="choose-class-empty"><Users size={30} /><p>Choose an active class<br />to see its student roster.</p></div>}</section></div><button className="text-button" onClick={onBack} disabled={busy}>← Use a different session code</button></section>;
+}

@@ -1,0 +1,19 @@
+PIC COMPETITION SOFTWARE — CLOUDFLARE EDITION
+
+1. Install Node.js 24 LTS from https://nodejs.org/
+2. Extract the ZIP and open the pic-cloudflare folder in Terminal.
+3. Run: npm ci
+4. Run: npm run setup
+   Sign in to your own Cloudflare account in the browser.
+   Press Enter to create a database; enter your host email/name/password.
+5. Run: npm run deploy
+6. Open the workers.dev link printed in the terminal.
+
+No GitHub upload or ChatGPT login is required.
+No R2 subscription or paid persistent disk is required.
+Use a Cloudflare Free account and monitor its usage allowances.
+Your password stays private; do not send it to ChatGPT.
+
+Read README.md for detailed steps, limits, local testing, password resets
+and adding your own domain later. This is a fresh installation; existing
+live competitions/accounts are not transferred.
