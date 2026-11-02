@@ -1,0 +1,1 @@
+ALTER TABLE `rooms` ADD `round_count` integer DEFAULT 3 NOT NULL;

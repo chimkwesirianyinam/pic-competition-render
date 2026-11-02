@@ -1,0 +1,1 @@
+ALTER TABLE `players` ADD `token` text DEFAULT '' NOT NULL;

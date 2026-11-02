@@ -1,0 +1,1 @@
+ALTER TABLE `rooms` ADD `multiple_buzzes` integer DEFAULT 1 NOT NULL;
