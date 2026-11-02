@@ -18,7 +18,7 @@
     {
       "binding": "DB",
       "database_name": "pic-competition",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "22b85f67-6fde-4466-8862-256da453fa55s",
       "migrations_dir": "drizzle"
     }
   ],
